@@ -99,7 +99,6 @@ pub fn Element(comptime tag_name: []const u8, comptime attr: anytype, style: any
         /// count number of dynamic elements
         pub const counts = field_count: {
             var dynamic_count: comptime_int = 0;
-            // var style_count: comptime_int = stylesheet.len;
 
             for (attributes) |field| {
                 // if (field.defaultValue()) |_| {
@@ -121,15 +120,10 @@ pub fn Element(comptime tag_name: []const u8, comptime attr: anytype, style: any
                             if (@hasDecl(element, "dynamic")) {
                                 dynamic_count += element.dynamic;
                             }
-                            // if (@hasDecl(element, "styled")) {
-                            //     style_count += element.styled;
-                            // }
                         },
                         .pointer => {
-                            // @compileLog(field.name);
                             switch (field.name[0]) {
-                                // Element([]const u8) special template case
-                                'a' => dynamic_count += 1,
+                                'p' => dynamic_count += 1,
                                 else => {},
                             }
                         },
@@ -145,50 +139,16 @@ pub fn Element(comptime tag_name: []const u8, comptime attr: anytype, style: any
             }
             break :field_count .{
                 .dynamic = dynamic_count,
-                // .style = style_count,
             };
         };
         pub const dynamic = counts.dynamic;
-        // pub const styled = counts.style;
 
         /// (dynamic * 2 + 1) is the maxium number of blocks needed
         // worse case: {static} {field} {static} {field} {static} = 2 * 2 + 1
         pub const block_length = (dynamic << 1) | 1;
 
-        // /// internal result of comptime build()
-        // pub const Model = struct {
-        //     blocks: [block_length]Block,
-        //     inner: []const u8,
-        //     // style: []const u8,
-        // };
-
         ///
         pub const dom = build(Branch.init(tag_name, 0, 0));
-
-        // /// more accurate count of blocks used
-        // const iovec_length = blocks_used: {
-        //     var used: comptime_int = 0;
-        //     for (template.blocks) |blk| {
-        //         used += switch (blk) {
-        //             .unused => break,
-        //             else => 1,
-        //         };
-        //     }
-        //     break :blocks_used used;
-        // };
-
-        // /// computes the the total byte length including runtime fields
-        // pub fn size(data: anytype) usize {
-        //     var len: usize = 0;
-        //     inline for (template.blocks) |blk| {
-        //         len += switch (blk) {
-        //             .unused => break,
-        //             .field => |name| @field(data, name).len,
-        //             .block => |val| val,
-        //         };
-        //     }
-        //     return len;
-        // }
 
         inline fn copy(buf: []u8, data: []const u8) void {
             std.debug.assert(data.len <= buf.len);
@@ -203,7 +163,6 @@ pub fn Element(comptime tag_name: []const u8, comptime attr: anytype, style: any
         pub const Model = struct {
             blocks: [block_length]Block,
             inner: []const u8,
-            // style: []const u8,
         };
 
         /// write compiled template into provided buffer
@@ -215,7 +174,6 @@ pub fn Element(comptime tag_name: []const u8, comptime attr: anytype, style: any
                 switch (blk) {
                     .unused => break,
                     .field => |template| {
-                        // std.log.debug("field: `{s}` -> `{s}`", .{ name, @field(data, name) });
                         const field = @field(data, template.name);
                         switch (@typeInfo(@TypeOf(field))) {
                             // field is []const u8
@@ -248,13 +206,11 @@ pub fn Element(comptime tag_name: []const u8, comptime attr: anytype, style: any
                         }
                     },
                     .block => |len| {
-                        // std.log.info("{s}", .{template.inner[template_offset..][0..len]});
                         copy(buf[buffer_offset..], model.inner[inner_offset..][0..len]);
                         buffer_offset += len;
                         inner_offset += len;
                     },
                 }
-                // std.log.debug("{any}", .{blk});
             }
             return buffer_offset;
         }
@@ -263,6 +219,7 @@ pub fn Element(comptime tag_name: []const u8, comptime attr: anytype, style: any
         pub fn Style(styles: anytype) type {
             return Element(tag_name, attr, styles, tags);
         }
+
         /// add tag attributes
         pub fn Attr(attrs: anytype) type {
             return Element(tag_name, attrs, style, tags);
@@ -273,14 +230,10 @@ pub fn Element(comptime tag_name: []const u8, comptime attr: anytype, style: any
         inline fn wif(condition: bool, bytes: []const u8) []const u8 {
             return if (condition) bytes else "";
         }
+
         /// internal
         /// "compiles" slices known at comptime
         pub fn build(comptime tree: Branch) Model {
-
-            // const new_line = wif(tree.format, "\n");
-            // const tabbed = wif(tree.format, "\t" ** tree.depth);
-            // const css = tree.bread ++ " {}";
-            // const style = wif(attributes.len > 0, "<style>" ++ css ++ "</style>");
             const open = "<" ++ tag_name;
             const start = wif(singleton, " /") ++ ">";
             const close = wif(!singleton, "</" ++ tag_name ++ ">");
@@ -289,22 +242,6 @@ pub fn Element(comptime tag_name: []const u8, comptime attr: anytype, style: any
             comptime var block: comptime_int = 0;
 
             comptime var literal: []const u8 = "";
-            // comptime var style: []const u8 = "";
-
-            // if (stylesheet.len > 0) {
-            //     if (std.mem.indexOf(u8, style, tree.bread ++ "{")) {
-            //         @compileError(std.fmt.comptimePrint("style exists for {s}", .{tree.bread}));
-            //     } else {
-            //         style = style ++ tree.bread ++ "{";
-            //         inline for (stylesheet) |field| {
-            //             if (field.defaultValue()) |css| {
-            //                 style = style ++ css ++ ";";
-            //             }
-            //         }
-            //         style = style ++ "} ";
-            //     }
-            // }
-
             if (stylesheet.len > 0) {
                 {
                     const string = "<style>" ++ tree.bread ++ "{";
@@ -367,7 +304,6 @@ pub fn Element(comptime tag_name: []const u8, comptime attr: anytype, style: any
 
             inline for (elements, 0..) |field, index| {
                 if (field.defaultValue()) |element| {
-                    // @compileLog(element);
                     switch (@typeInfo(@TypeOf(element))) {
                         .type => {
                             const tpl = element.build(tree.next(element.tag, index));
@@ -410,7 +346,6 @@ pub fn Element(comptime tag_name: []const u8, comptime attr: anytype, style: any
             blocks[block].add(close.len);
 
             return .{
-                // .style = format("{s}" ** styled, .{styles}),
                 .blocks = blocks,
                 .inner = literal,
             };
